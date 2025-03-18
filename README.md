@@ -1,2 +1,2 @@
-# cong nghe phan mem
-công nghệ phần mềm ptit
+# cong_nghe_phan_mem
+cong_nghe_phan_mem
