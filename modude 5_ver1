@@ -1,0 +1,98 @@
+import streamlit as st
+import pandas as pd
+import io
+from io import StringIO
+
+# Sample Employee Data (CSV format as you provided)
+CSV_DATA = """Employee ID,First Name,Last Name,Job Title,Department,Hire Date,Email,Phone Number,Address,City,State,Zip Code,Salary,Performance Rating,Emergency Contact Name,Emergency Contact Phone,Benefits Package,Employee Status,Manager ID
+1001,Alice,Smith,Network Engineer,Engineering,2022-08-15,alice.smith@exampletelecom.com,555-123-4567,123 Main St,Anytown,CA,91234,85000,"Meets Expectations",Bob Smith,555-987-6543,Standard,Active,1004
+1002,Bob,Johnson,Customer Service Representative,Customer Support,2023-01-20,bob.johnson@exampletelecom.com,555-234-5678,456 Oak Ave,Anytown,CA,91234,45000,"Needs Improvement",Carol Johnson,555-876-5432,Basic,Active,1005
+1003,Carol,Williams,Sales Manager,Sales,2021-05-10,carol.williams@exampletelecom.com,555-345-6789,789 Pine Ln,Anytown,CA,91234,95000,"Exceeds Expectations",David Williams,555-765-4321,Premium,Active,
+1004,David,Brown,Senior Network Engineer,Engineering,2020-03-01,david.brown@exampletelecom.com,555-456-7890,101 Elm St,Anytown,CA,91234,110000,"Exceeds Expectations",Eve Brown,555-654-3210,Premium,Active,
+1005,Eve,Davis,Customer Support Team Lead,Customer Support,2022-11-05,eve.davis@exampletelecom.com,555-567-9012,222 Maple Dr,Anytown,CA,91234,60000,"Meets Expectations",Frank Davis,555-543-2109,Standard,Active,1004
+"""
+
+
+@st.cache_data  # Cache the data loading for performance
+def load_and_clean_data(csv_data):
+    """Loads the employee data from CSV, cleans it, and returns a Pandas DataFrame."""
+    df = pd.read_csv(io.StringIO(csv_data))
+
+    # Data Cleaning:
+    # 1. Remove leading/trailing whitespace from string columns
+    for col in df.select_dtypes(include='object'):
+        df[col] = df[col].str.strip()
+
+    # 2. Convert Hire Date to datetime objects
+    df['Hire Date'] = pd.to_datetime(df['Hire Date'])
+
+    # 3. Convert Salary to numeric (handling potential errors)
+    df['Salary'] = pd.to_numeric(df['Salary'], errors='coerce')  # 'coerce' turns invalid parsing into NaN
+    df['Salary'] = df['Salary'].fillna(0)  # Replace NaN salaries with 0
+
+    #4. Convert Employee ID and Manager ID to int
+    df['Employee ID'] = pd.to_numeric(df['Employee ID'], errors='coerce').fillna(0).astype(int)
+    df['Manager ID'] = pd.to_numeric(df['Manager ID'], errors='coerce').fillna(0).astype(int)
+
+    # 5. Standardize Phone Number Format (Basic - more robust validation would be needed for a real application)
+    df['Phone Number'] = df['Phone Number'].str.replace(r'\D+', '', regex=True) #Remove all non-digits
+
+    return df
+
+def get_employee_information(df):
+    """Module to display employee information."""
+    st.header("Employee Information")
+    employee_id = st.selectbox("Select Employee ID", df['Employee ID'].unique())
+    employee_data = df[df['Employee ID'] == employee_id].iloc[0]  # Get the first row as a Series
+
+    st.write(f"**Employee ID:** {employee_data['Employee ID']}")
+    st.write(f"**Name:** {employee_data['First Name']} {employee_data['Last Name']}")
+    st.write(f"**Job Title:** {employee_data['Job Title']}")
+    st.write(f"**Department:** {employee_data['Department']}")
+    st.write(f"**Hire Date:** {employee_data['Hire Date'].strftime('%Y-%m-%d')}") #Format date
+    st.write(f"**Email:** {employee_data['Email']}")
+    st.write(f"**Phone Number:** {employee_data['Phone Number']}")
+    st.write(f"**Address:** {employee_data['Address']}, {employee_data['City']}, {employee_data['State']} {employee_data['Zip Code']}")
+    st.write(f"**Salary:** ${employee_data['Salary']:,.2f}") #Format salary
+
+def calculate_total_salary(df):
+    """Module to calculate the total salary for a selected department."""
+    st.header("Calculate Total Salary by Department")
+    department = st.selectbox("Select Department", df['Department'].unique())
+    department_salary = df[df['Department'] == department]['Salary'].sum()
+    st.write(f"**Total Salary for {department}:** ${department_salary:,.2f}")
+
+def export_employee_data(df):
+    """Module to export employee data to CSV."""
+    st.header("Export Employee Data")
+    if st.button("Export to CSV"):
+        csv_buffer = StringIO() #Using StringIO to create an in-memory text buffer.
+        df.to_csv(csv_buffer, index=False) #Write the DataFrame to the buffer
+
+        # Download Button
+        st.download_button(
+            label="Download CSV",
+            data=csv_buffer.getvalue(), #Get the CSV data from the buffer
+            file_name="employee_data.csv",
+            mime="text/csv",
+        )
+
+
+def main():
+    """Main function to run the Streamlit app."""
+    st.title("Employee Management System")
+
+    df = load_and_clean_data(CSV_DATA)
+
+    module_selection = st.sidebar.selectbox("Select Module", ["Get Employee Information", "Calculate Total Salary", "Export Employee Data"])
+
+    if module_selection == "Get Employee Information":
+        get_employee_information(df)
+    elif module_selection == "Calculate Total Salary":
+        calculate_total_salary(df)
+    elif module_selection == "Export Employee Data":
+        export_employee_data(df)
+
+if __name__ == "__main__":
+    main()
+    
